@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk URL Checker</title>
+    <style>
+        body {
+            background-color: #f9fafb;
+            padding: 20px;
+        }
+        .nexus-url-checker {
+            max-width: 1100px;
+            margin: 30px auto;
+            font-family: Arial, sans-serif;
+            background: #fff;
+            border: 1px solid #e6e8ec;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 8px 35px rgba(0,0,0,.06);
+        }
+        .nuc-header h2 { margin: 0 0 8px; font-size: 28px; font-weight: 700; }
+        .nuc-header p { margin: 0 0 22px; color: #667085; font-size: 15px; }
+        #nuc-urls {
+            width: 100%; min-height: 220px; resize: vertical; border: 1px solid #d0d5dd;
+            border-radius: 10px; padding: 16px; font-family: monospace; font-size: 14px;
+            line-height: 1.7; box-sizing: border-box; outline: none;
+        }
+        #nuc-urls:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+        .nuc-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .nuc-actions button {
+            border: 0; border-radius: 8px; padding: 12px 22px; cursor: pointer;
+            font-weight: 600; font-size: 14px; background: #2563eb; color: #fff;
+        }
+        .nuc-actions button:hover { opacity: .9; }
+        .nuc-actions .nuc-secondary { background: #f2f4f7; color: #344054; }
+        .nuc-progress-wrap { margin-top: 25px; }
+        .nuc-progress-top { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; color: #475467; }
+        .nuc-progress { height: 8px; background: #eaecf0; border-radius: 20px; overflow: hidden; }
+        .nuc-progress-bar { height: 100%; width: 0%; background: #2563eb; transition: width .25s ease; }
+        .nuc-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-top: 25px; }
+        .nuc-stat { border: 1px solid #e4e7ec; background: #f9fafb; border-radius: 10px; padding: 15px; }
+        .nuc-stat strong { display: block; font-size: 24px; margin-bottom: 4px; }
+        .nuc-stat span { color: #667085; font-size: 13px; }
+        .nuc-green strong { color: #039855; }
+        .nuc-orange strong { color: #dc6803; }
+        .nuc-red strong { color: #d92d20; }
+        .nuc-results-wrap { overflow-x: auto; margin-top: 22px; }
+        .nuc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .nuc-table th { text-align: left; background: #f9fafb; color: #475467; border-bottom: 1px solid #eaecf0; border-right: 1px solid #e4e7ec; padding: 13px 12px; }
+        .nuc-table th:last-child { border-right: none; }
+        .nuc-th-inner { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .nuc-th-inner svg { color: #98a2b3; }
+        .nuc-table td { border-bottom: 1px solid #eaecf0; border-right: 1px solid #f2f4f7; padding: 13px 12px; vertical-align: middle; }
+        .nuc-table td:last-child { border-right: none; }
+        .nuc-table tbody tr:nth-child(even) { background-color: #fcfcfd; }
+        .nuc-url-container { display: flex; align-items: center; gap: 8px; }
+        .nuc-url { max-width: 450px; word-break: break-all; }
+        .nuc-icon-btn {
+            background: none; border: 1px solid transparent; cursor: pointer; padding: 4px; border-radius: 4px;
+            color: #667085; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .nuc-icon-btn:hover { background: #f2f4f7; color: #111827; border-color: #e4e7ec; }
+        .nuc-badge {
+            display: inline-block; padding: 5px 9px; border-radius: 20px; font-size: 12px;
+            font-weight: 700; white-space: nowrap;
+        }
+        .nuc-badge-active { background: #ecfdf3; color: #027a48; }
+        .nuc-badge-redirect { background: #fff6ed; color: #c4320a; }
+        .nuc-badge-client_error, .nuc-badge-server_error, .nuc-badge-error { background: #fef3f2; color: #b42318; }
+        .nuc-badge-checking { background: #eff8ff; color: #175cd3; }
+        @media(max-width:700px) {
+            body { padding: 10px; }
+            .nexus-url-checker { padding: 18px; }
+            .nuc-summary { grid-template-columns: repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="nexus-url-checker">
+        <div class="nuc-header">
+            <h2>Bulk Link Status Checker</h2>
+            <p>Paste your URLs below, one URL per line. Check HTTP status codes including 200, 301, 404 and 500.</p>
+        </div>
+
+        <textarea id="nuc-urls" placeholder="https://example.com/&#10;https://example.com/about/"></textarea>
+
+        <div class="nuc-actions">
+            <button type="button" id="nuc-check">Check URLs</button>
+            <button type="button" id="nuc-clear" class="nuc-secondary">Clear</button>
+        </div>
+
+        <div id="nuc-progress-wrap" class="nuc-progress-wrap" style="display:none;">
+            <div class="nuc-progress-top">
+                <span id="nuc-progress-label">Checking URLs...</span>
+                <span id="nuc-progress-text">0 / 0</span>
+            </div>
+            <div class="nuc-progress">
+                <div id="nuc-progress-bar" class="nuc-progress-bar"></div>
+            </div>
+        </div>
+
+        <div id="nuc-summary" class="nuc-summary" style="display:none;">
+            <div class="nuc-stat">
+                <strong id="nuc-total">0</strong><span>Total</span>
+            </div>
+            <div class="nuc-stat nuc-green">
+                <strong id="nuc-active">0</strong><span>Active</span>
+            </div>
+            <div class="nuc-stat nuc-orange">
+                <strong id="nuc-redirect">0</strong><span>Redirects</span>
+            </div>
+            <div class="nuc-stat nuc-red">
+                <strong id="nuc-broken">0</strong><span>Broken / Errors</span>
+            </div>
+        </div>
+
+        <div id="nuc-results-wrap" class="nuc-results-wrap" style="display:none;">
+            <table class="nuc-table">
+                <thead>
+                    <tr>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                URL
+                            </div>
+                        </th>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                Status
+                            </div>
+                        </th>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                HTTP Code
+                            </div>
+                        </th>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                Response
+                            </div>
+                        </th>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                Time
+                            </div>
+                        </th>
+                        <th>
+                            <div class="nuc-th-inner">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                                Action
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="nuc-results"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        
+        // Pointing directly to our standalone PHP proxy script
+        const ajaxURL = 'checker.php';
+
+        const textarea = document.getElementById('nuc-urls');
+        const checkButton = document.getElementById('nuc-check');
+        const clearButton = document.getElementById('nuc-clear');
+        const results = document.getElementById('nuc-results');
+        const resultsWrap = document.getElementById('nuc-results-wrap');
+        const summary = document.getElementById('nuc-summary');
+        const progressWrap = document.getElementById('nuc-progress-wrap');
+        const progressBar = document.getElementById('nuc-progress-bar');
+        const progressLabel = document.getElementById('nuc-progress-label');
+        const progressText = document.getElementById('nuc-progress-text');
+
+        let counts = { total: 0, active: 0, redirect: 0, broken: 0, completed: 0 };
+
+        function updateStats() {
+            document.getElementById('nuc-total').textContent = counts.total;
+            document.getElementById('nuc-active').textContent = counts.active;
+            document.getElementById('nuc-redirect').textContent = counts.redirect;
+            document.getElementById('nuc-broken').textContent = counts.broken;
+            const percent = counts.total ? (counts.completed / counts.total) * 100 : 0;
+            progressBar.style.width = percent + '%';
+            progressText.textContent = counts.completed + ' / ' + counts.total;
+        }
+
+        function createRow(url, index) {
+            const row = document.createElement('tr');
+            row.dataset.index = index;
+            row.dataset.url = url; 
+            row.innerHTML = `
+                <td>
+                    <div class="nuc-url-container">
+                        <span class="nuc-url"></span>
+                        <button class="nuc-icon-btn nuc-copy-btn" title="Copy URL">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                </td>
+                <td><span class="nuc-badge nuc-badge-checking">Checking...</span></td>
+                <td class="nuc-code">—</td>
+                <td class="nuc-message">—</td>
+                <td class="nuc-time">—</td>
+                <td style="text-align:center;">
+                    <button class="nuc-icon-btn nuc-reload-btn" title="Recheck URL">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    </button>
+                </td>
+            `;
+            row.querySelector('.nuc-url').textContent = url;
+            results.appendChild(row);
+            return row;
+        }
+
+        async function checkURL(url, row) {
+            const body = new URLSearchParams();
+            body.append('url', url);
+
+            const badge = row.querySelector('.nuc-badge');
+
+            try {
+                const response = await fetch(ajaxURL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: body.toString()
+                });
+
+                const json = await response.json();
+
+                if (!json.success) {
+                    throw new Error(json.data && json.data.message ? json.data.message : 'Unable to check URL');
+                }
+
+                const data = json.data;
+
+                badge.textContent = data.status;
+                badge.className = 'nuc-badge nuc-badge-' + data.status_key;
+                badge.dataset.statusKey = data.status_key;
+
+                row.querySelector('.nuc-code').textContent = data.code || '—';
+                row.querySelector('.nuc-message').textContent = data.message || '—';
+                row.querySelector('.nuc-time').textContent = data.response_time + ' ms';
+
+                if (data.status_key === 'active') { counts.active++; }
+                else if (data.status_key === 'redirect') { counts.redirect++; }
+                else { counts.broken++; badge.dataset.statusKey = 'error'; }
+            } catch (error) {
+                badge.textContent = 'Check Failed';
+                badge.className = 'nuc-badge nuc-badge-error';
+                badge.dataset.statusKey = 'error';
+                row.querySelector('.nuc-message').textContent = error.message;
+                counts.broken++;
+            }
+
+            counts.completed++;
+            updateStats();
+        }
+
+        results.addEventListener('click', async function(e) {
+            const copyBtn = e.target.closest('.nuc-copy-btn');
+            const reloadBtn = e.target.closest('.nuc-reload-btn');
+            
+            if (copyBtn) {
+                const row = copyBtn.closest('tr');
+                const url = row.dataset.url;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        const originalHTML = copyBtn.innerHTML;
+                        copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#039855" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                        setTimeout(() => { copyBtn.innerHTML = originalHTML; }, 2000);
+                    });
+                }
+            }
+
+            if (reloadBtn) {
+                const row = reloadBtn.closest('tr');
+                const url = row.dataset.url;
+                const badge = row.querySelector('.nuc-badge');
+                const oldStatusKey = badge.dataset.statusKey;
+
+                if (oldStatusKey === 'active') counts.active--;
+                else if (oldStatusKey === 'redirect') counts.redirect--;
+                else if (oldStatusKey) counts.broken--;
+                
+                counts.completed--;
+                updateStats();
+
+                badge.textContent = 'Checking...';
+                badge.className = 'nuc-badge nuc-badge-checking';
+                badge.dataset.statusKey = '';
+                row.querySelector('.nuc-code').textContent = '—';
+                row.querySelector('.nuc-message').textContent = '—';
+                row.querySelector('.nuc-time').textContent = '—';
+                
+                progressLabel.textContent = 'Re-checking URL...';
+
+                await checkURL(url, row);
+                if (counts.completed === counts.total) { progressLabel.textContent = 'Check Complete!'; }
+            }
+        });
+
+        checkButton.addEventListener('click', async function () {
+            let urls = textarea.value.split(/\s+/).map(url => url.trim()).filter(Boolean);
+            urls = [...new Set(urls)];
+
+            if (!urls.length) { alert('Please paste at least one URL.'); return; }
+            if (urls.length > 100) { alert('Please check a maximum of 100 URLs at a time.'); return; }
+
+            results.innerHTML = '';
+            counts = { total: urls.length, active: 0, redirect: 0, broken: 0, completed: 0 };
+            summary.style.display = 'grid';
+            resultsWrap.style.display = 'block';
+            progressWrap.style.display = 'block';
+            progressLabel.textContent = 'Checking URLs...';
+            checkButton.disabled = true;
+            checkButton.textContent = 'Checking...';
+
+            updateStats();
+
+            const jobs = urls.map(function (url, index) { return { url: url, row: createRow(url, index) }; });
+            let nextIndex = 0;
+
+            async function worker() {
+                while (nextIndex < jobs.length) {
+                    const jobIndex = nextIndex++;
+                    await checkURL(jobs[jobIndex].url, jobs[jobIndex].row);
+                }
+            }
+
+            const workerCount = Math.min(5, jobs.length);
+            const workers = [];
+            for (let i = 0; i < workerCount; i++) { workers.push(worker()); }
+
+            await Promise.all(workers);
+
+            progressLabel.textContent = 'Check Complete!';
+            checkButton.disabled = false;
+            checkButton.textContent = 'Check URLs';
+        });
+
+        clearButton.addEventListener('click', function () {
+            textarea.value = '';
+            results.innerHTML = '';
+            summary.style.display = 'none';
+            resultsWrap.style.display = 'none';
+            progressWrap.style.display = 'none';
+            progressBar.style.width = '0%';
+        });
+    });
+    </script>
+</body>
+</html>
